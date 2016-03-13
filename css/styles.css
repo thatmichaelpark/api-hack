@@ -1,0 +1,48 @@
+html, body {
+	height: 100%;
+	margin: 0;
+	padding: 0;
+}
+
+form {
+	text-align: center;
+}
+
+#map {
+	position: absolute;
+	width: 100%;
+	top: 2em;
+	bottom: 50%;
+}
+
+section#output {
+	position: absolute;
+	overflow-y: auto;
+	width: 100%;
+	top: 50%;
+	bottom: 5em;
+}
+
+footer {
+	position: absolute;
+	width: 100%;
+	height: 5em;
+	bottom: 0;
+	text-align: center;
+}
+
+div.dealinfo {
+	display: block;
+	clear: both;
+	padding: 20px;
+}
+div.dealinfo:hover {
+	background: lightblue;
+}
+
+div.dealdetails {
+	padding: 20px;
+	display: none;
+	background: salmon;
+	outline: 1px solid red;
+}
