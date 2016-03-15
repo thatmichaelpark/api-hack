@@ -5,44 +5,109 @@ html, body {
 }
 
 form {
+	padding-top: 0.25rem;
 	text-align: center;
+}
+
+#radius {
+	width: 2rem;
 }
 
 #map {
 	position: absolute;
 	width: 100%;
-	top: 2em;
+	top: 2rem;
 	bottom: 50%;
 }
 
+#initial-message {
+	position: absolute;
+	top: 40%;
+	width: 100%;
+	text-align: center;
+}
 section#output {
 	position: absolute;
 	overflow-y: auto;
 	width: 100%;
 	top: 50%;
-	bottom: 5em;
+	bottom: 5rem;
+}
+
+#output {
+	background: beige;
+}
+
+div.deal {
+	padding: 0.25rem;
+	text-align: center;
+}
+
+div.deal.selected {
+	border: 1px solid black;
+	border-radius: 0.5rem;
+}
+
+div.deal:hover {
+	background: lightblue;
+}
+
+span.deal-category, span.deal-title {
+	font-size: smaller;
+	border: 1px solid;
+	border-radius: 0.4rem;
+	padding: 0 0.3rem;
+	position: relative;
+	top: -0.1rem;
+}
+
+span.deal-category {
+	background: #6fc;
+	border-color: #386;
+	color: #386;
+}
+
+span.deal-name {
+	font-family: 'Francois One';
+}
+
+span.deal-title {
+	background: #fc0;
+	border-color: #860;
+	color: #860;
+}
+
+div.deal-details {
+	padding: 0.5rem;
+	display: none;
+	text-align: center;
+}
+
+div.left, div.right {
+	display: inline-block;
+}
+
+div.right {
+	width: 75%;
+}
+
+div.deal-info, div.disclaimer {
+	margin: 0.5rem auto;
+	width: 50%;
 }
 
 footer {
 	position: absolute;
 	width: 100%;
-	height: 5em;
+	height: 5rem;
 	bottom: 0;
 	text-align: center;
 }
 
-div.dealinfo {
-	display: block;
-	clear: both;
-	padding: 20px;
-}
-div.dealinfo:hover {
-	background: lightblue;
+.busy {
+	cursor: wait;
 }
 
-div.dealdetails {
-	padding: 20px;
+.hidden {
 	display: none;
-	background: salmon;
-	outline: 1px solid red;
 }

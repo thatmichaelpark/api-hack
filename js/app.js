@@ -1,32 +1,45 @@
+/*
+to do:
+adjust search radius depending on zoom?
+flexbox?
+*/
 'use strict'
 
+// API key courtesy of 8coupons.com
 var key = '1152c7393828d39ffd2fb7d33fa44b42640aa8445ac957e155fac327a00774b6be5ce7a07d17c12f687f6b945616878c';
 var map;
 
-function APItest(url, params) {
-	return $.ajax({
-		url: url,
-		data: params,
-		dataType: "jsonp",
-		type: "GET"
-	})
-};
-
 var categories = {};
+var markers = [];
 
-function setSubcategories(c) {
-	$('#subcategory').empty();
-	categories[c].subcategories.forEach(function (s) {
-		$('#subcategory').append('<option value="' + s.name + '">' + s.name + '</option>');
+$(function () {	// Everything starts here.
+
+	initMap();	// First, initialize the Google map.
+
+	// Then, get category/subcategory information (e.g., 'restaurant', 'pizza').
+	getJSONP('http://api.8coupons.com/v1/getsubcategory').then(function (ss) {
+		ss.forEach(function (s) {
+			if (categories[s.category] === undefined) {		// The first time we see a category, we
+				categories[s.category] = {					// add it to the categories collection...
+					name: s.category,
+					id: s.categoryID,
+					subcategories: []
+				};
+															// ... and add it to the dropdown list.
+				$('#category').append('<option value="' + s.category + '">' + s.category + '</option>');
+			}
+
+			categories[s.category].subcategories.push({		// Save subcategory info.
+				name: s.subcategory,
+				id: s.subcategoryID
+			});
+		});
+
+		initEventHandlers();	// Now that the dropdown is populated, we can enable event handlers.
 	});
-	
-}
+});
 
-$(function () {
-	var allPanels;
-	var markers = [];
-	var dealinfos = [];
-
+function initMap() {
 	if (navigator.geolocation) {
 		navigator.geolocation.getCurrentPosition(function (pos) {
 			var latLng = new google.maps.LatLng(pos.coords.latitude, pos.coords.longitude);
@@ -34,112 +47,162 @@ $(function () {
 				document.getElementById('map'),
 				{
 					center: latLng,
-					zoom: 11
+					zoom: 12
 				}
 			);
 		},
 		function (error) {
-			console.log(error);;;
+			console.log(error);
+			map = new google.maps.Map(
+				document.getElementById('map'),
+				{
+					center: new google.maps.LatLng(0, 0),
+					zoom: 1
+				}
+			);
 		});
 	} else {
 		console.log('no geolocation :(');
 	}
+}
 
-	$('body').on('click', 'div.dealinfo', function () {
-		allPanels.slideUp();
-		$(this).children().eq(0).slideDown();
-		markers[$(this).parent().children().index(this)].setAnimation(google.maps.Animation.BOUNCE);
+function initEventHandlers() {
 
-		return false;
+	$('body').on('click', 'div.deal', function (e) {
+		if ($(e.target).is('a')) {	// If the <a> was clicked, ignore the click.
+			return;
+		}
+		if ($(this).hasClass('selected')) {
+			$('div.deal.selected div.deal-details').slideUp();
+			$('div.deal.selected').removeClass('selected');
+			markers[$('#output').children().index(this)].setAnimation();
+		} else {
+			var currentSelected = $('div.deal.selected');
+			if (currentSelected[0]) {
+				markers[$('#output').children().index(currentSelected)].setAnimation();
+				$('div.deal.selected div.deal-details').hide();		
+				$('div.deal.selected').removeClass('selected');
+			}
+			$(this).addClass('selected');
+			var top = $(this).position().top + $(this).parent().scrollTop();
+			$('#output').animate({ scrollTop: top }, 'slow');
+			$(this).find('div.deal-details').slideDown();
+			markers[$('#output').children().index(this)].setAnimation(google.maps.Animation.BOUNCE);
+		}
 	});
+
 	$('form').submit(function (e) {
 		e.preventDefault();
-		console.log('sending');;;
-		APItest('http://api.8coupons.com/v1/getdeals', {
-			key: key,
-			lat: map.getCenter().lat(),
-			lon: map.getCenter().lng(),
-			categoryid: categories[$('#category').val()].id,
-			mileradius: $('#radius').val(),
-			limit: 20
-		})
-		.done(function (result) {
-			$('#output').empty();
-			markers = [];
-console.log('result', result);;;
-			result.forEach(function (r) {
-				$('#output').append('<div class="dealinfo" name="'
-				+ r.name + '">'
-					+ r.DealTypeID + ', '
-					+ r.categoryID + ', '
-					+ r.subcategoryID + ', '
-					+ r.name + ', '
-					+ r.dealTitle + ', '
-					+ '<div class="dealdetails">' +
-						r.address + ', ' +
-						r.city + ', ' +
-						r.state + ', ' +
-						r.city + ', ' +
-						r.ZIP + ', ' +
-						r.phone + ', ' +
-						r.dealinfo + ', ' +
-						r.disclaimer +
-						'<a href="' + r.URL + '">Get Coupon</a>' +
-					'</div>'
-				+ '</div>');
+		getDeals();
+	});
+}
 
-				allPanels = $('div.dealdetails').hide();
+function getDeals() {
+	$('body').addClass('busy');
+
+	getJSONP('http://api.8coupons.com/v1/getdeals', {
+		key: key,
+		lat: map.getCenter().lat(),
+		lon: map.getCenter().lng(),
+		categoryid: categories[$('#category').val()].id,
+		mileradius: computeRadius(),
+		limit: 20
+	})
+	.done(function (result) {
+		$('body').removeClass('busy');
+		$('#output').empty();
+		markers.forEach(function (marker) {		// Remove previous markers from map.
+			marker.setMap(null);
+		})
+		markers = [];
+		result.forEach(function (r) {
+			var template = $('.template .deal').clone();
+			template.find('.deal-category').text(makeCategory(r.categoryID, r.subcategoryID));
+			template.find('.deal-name').text(r.name);
+			template.find('.deal-title').text(r.dealTitle);
+			template.find('.address').text(r.address);
+			template.find('.phone').text(r.phone);
+			template.find('.deal-info').text(r.dealinfo);
+			template.find('.disclaimer').text(r.disclaimer);
+			template.find('.link a').attr('href', r.URL);
+			template.find('.image').attr('src', r.showImageStandardSmall);
+			$('#output').append(template);
+	
+			var latLng = new google.maps.LatLng(r.lat, r.lon);
 			
-				var latLng = new google.maps.LatLng(r.lat, r.lon);
-				
-				var marker = new google.maps.Marker({
-					position: latLng,
-					map: map,
-					title: r.name,
-					clickable: true
-				});
-				
-				markers.push(marker);
-
-				var infoWindow = new google.maps.InfoWindow({
-					content: '<h1>' + r.name + '</h1>' + r.address + '<br>' + r.city + '<br>' + r.phone,
-					position: latLng
-				});
-				
-				google.maps.event.addListener(marker, 'click', function () {
-					infoWindow.open(map);
-//					$('div[name="' + this.title + '"]').trigger('click');
-					var top = $('div[name="' + this.title + '"]').position().top +
-						$('div[name="' + this.title + '"]').parent().scrollTop();
-					$('#output').animate({ scrollTop: top }, 'slow');
-				});
+			var marker = new google.maps.Marker({
+				position: latLng,
+				map: map,
+				title: r.name,
+				clickable: true
 			});
-		})
-		.fail(function(jqXHR, error){ //this waits for the ajax to return with an error promise object
-			console.log(jqXHR);
-			console.log(error);
-		});
-	});
+			
+			markers.push(marker);
 
-	
-	var a = APItest('http://api.8coupons.com/v1/getcategory');
-	var b = APItest('http://api.8coupons.com/v1/getsubcategory');
-	var c = APItest('http://api.8coupons.com/v1/getdealtype');
-	
-	$.when(a, b, c).then(function (cs, ss, ds) {
-		cs[0].forEach(function (c) {
-			categories[c.category] = {
-				name: c.category,
-				id: c.categoryID,
-				subcategories: []
-			};
-			$('#category').append('<option value="' + c.category + '">' + c.category + '</option>');
-		});
-		ss[0].forEach(function (s) {
-			categories[s.category].subcategories.push({
-				name: s.subcategory,
-				id: s.subcategoryID
+			var infoWindow = new google.maps.InfoWindow({
+				content: '<h1>' + r.name + '</h1>' + r.address + '<br>' + r.city + '<br>' + r.phone,
+				position: latLng
+			});
+			
+			google.maps.event.addListener(marker, 'click', function () {
+//				infoWindow.open(map);
+
+				var title = this.title;
+				$('#output span').filter(function () {
+					return $(this).text() === title;
+				}).parent().trigger('click');
 			});
 		});
+	})
+	.fail(function(jqXHR, error){ //this waits for the ajax to return with an error promise object
+		console.log(jqXHR);
+		console.log(error);
 	});
-});
+}
+
+function computeRadius() {
+	var center = map.getCenter();
+	var bounds = map.getBounds();
+	var NE = bounds.getNorthEast();
+	var radiusN = computeDistance(center.lat(), center.lng(), NE.lat(), center.lng());
+	var radiusE = computeDistance(center.lat(), center.lng(), center.lat(), NE.lng());
+	return Math.min(radiusN, radiusE);
+	
+	function computeDistance(lat0, lng0, lat1, lng1) {
+		console.log(lat0, lng0, lat1, lng1);;;
+		lat0 = degToRad(lat0);
+		lng0 = degToRad(lng0);
+		lat1 = degToRad(lat1);
+		lng1 = degToRad(lng1);
+		var earthRadius = 3959;	// miles
+		return Math.acos(Math.sin(lat0) * Math.sin(lat1) + Math.cos(lat0) * Math.cos(lat1) * Math.cos(lng0 - lng1)) * earthRadius;
+		
+		function degToRad(deg) {
+			return deg * Math.PI / 180;
+		}
+	}
+}
+
+function makeCategory(catID, subcatID) {
+	var ret = '';
+	for (var cat in categories) {
+		if (categories[cat].id == catID) {
+			ret = cat;
+			categories[cat].subcategories.forEach(function (sub) {
+				if (sub.id == subcatID) {
+					ret += '—' + sub.name;
+				}
+			});
+			return ret;
+		}
+	}
+}
+
+function getJSONP(url, params) {
+	return $.ajax({
+		url: url,
+		data: params,
+		dataType: "jsonp",
+		type: "GET"
+	})
+};
