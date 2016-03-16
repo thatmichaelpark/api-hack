@@ -1,6 +1,5 @@
 /*
 to do:
-adjust search radius depending on zoom?
 flexbox?
 */
 'use strict'
@@ -97,15 +96,33 @@ function initEventHandlers() {
 	});
 }
 
+var circle;
+
 function getDeals() {
 	$('body').addClass('busy');
+	
+	var radius = Math.round(computeRadius() + 1); // round up (way up) in case 8coupons api expects an int.
 
+	if (circle) {
+		circle.setMap();
+	}
+	circle = new google.maps.Circle({
+      strokeColor: '#FF0000',
+      strokeOpacity: 0.3,
+      strokeWeight: 2,
+      fillColor: '#FF8800',
+      fillOpacity: 0.15,
+      map: map,
+      center: map.getCenter(),
+      radius: radius * 1600 // miles -> m
+    });
+	
 	getJSONP('http://api.8coupons.com/v1/getdeals', {
 		key: key,
 		lat: map.getCenter().lat(),
 		lon: map.getCenter().lng(),
 		categoryid: categories[$('#category').val()].id,
-		mileradius: computeRadius(),
+		mileradius: radius,
 		limit: 20
 	})
 	.done(function (result) {
@@ -169,7 +186,6 @@ function computeRadius() {
 	return Math.min(radiusN, radiusE);
 	
 	function computeDistance(lat0, lng0, lat1, lng1) {
-		console.log(lat0, lng0, lat1, lng1);;;
 		lat0 = degToRad(lat0);
 		lng0 = degToRad(lng0);
 		lat1 = degToRad(lat1);
