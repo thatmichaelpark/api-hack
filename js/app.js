@@ -101,7 +101,8 @@ var circle;
 function getDeals() {
 	$('body').addClass('busy');
 	
-	var radius = Math.round(computeRadius() + 1); // round up (way up) in case 8coupons api expects an int.
+	var radius = Math.round(computeRadius());	// round in case 8coupons api expects an int.
+	radius = Math.max(1, radius);				// Make it at least 1.
 
 	if (circle) {
 		circle.setMap();
